@@ -124,12 +124,14 @@ export default function ShipmentMap({ height = '500px', showHeatmap = false }: S
         </div>
       `)
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([shipment.originLon, shipment.originLat])
-        .setPopup(popup)
-        .addTo(map.current)
+      if (map.current) {
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([shipment.originLon, shipment.originLat])
+          .setPopup(popup)
+          .addTo(map.current)
 
-      markers.current.push(marker)
+        markers.current.push(marker)
+      }
     })
   }, [shipments])
 
