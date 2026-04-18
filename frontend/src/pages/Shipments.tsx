@@ -49,7 +49,15 @@ export default function Shipments() {
   const [riskFilter, setRiskFilter] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [selectedTab, setSelectedTab] = useState<'all' | 'active' | 'at-risk'>('all')
-  const [shipmentAlerts, setShipmentAlerts] = useState([])
+  interface Alert {
+    id: string
+    shipment_id: string
+    severity: string
+    message: string
+    createdAt: string
+  }
+
+  const [shipmentAlerts, setShipmentAlerts] = useState<Alert[]>([])
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['shipments', selectedTab],
