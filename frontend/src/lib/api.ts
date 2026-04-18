@@ -70,7 +70,7 @@ export const routesApi = {
 }
 
 export const alertsApi = {
-  getAll: async (params?: { shipmentId?: string; severity?: string[]; acknowledged?: boolean }) => {
+  getAll: async (params?: { shipmentId?: string; severity?: string[]; acknowledged?: boolean; limit?: number }) => {
     const { data } = await api.get('/alerts', { params })
     return data
   },
