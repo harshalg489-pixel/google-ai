@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Package,
   AlertTriangle,
@@ -77,6 +77,11 @@ export default function Dashboard() {
   const { kpiData, setKPIData } = useDashboardStore()
   const [predictions, setPredictions] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState('overview')
+  const queryClient = useQueryClient()
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries()
+  }
 
   const { data: shipmentsData } = useQuery({
     queryKey: ['shipments'],
@@ -169,17 +174,17 @@ export default function Dashboard() {
       className="min-h-screen bg-background p-6 space-y-6"
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Smart Supply Chain Command Center</h1>
-          <p className="text-muted-foreground mt-1">Real-time logistics monitoring & AI-powered disruption prediction</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Smart Supply Chain Command Center</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Real-time logistics monitoring & AI-powered disruption prediction</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="secondary" className="gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Live Updates
           </Badge>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleRefresh}>
             <RefreshCw className="w-4 h-4" />
             Refresh
           </Button>
@@ -207,7 +212,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto lg:w-[400px] gap-1 p-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="shipments">Shipments</TabsTrigger>
           <TabsTrigger value="predictions">AI Predictions</TabsTrigger>
@@ -236,7 +241,7 @@ export default function Dashboard() {
                 <CardContent className="h-[400px] bg-muted/50 rounded-lg m-4 flex items-center justify-center relative overflow-hidden">
                   {/* Simulated Map */}
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,_rgba(59,130,246,0.1),_transparent_50%),radial-gradient(circle_at_70%_60%,_rgba(34,197,94,0.1),_transparent_50%)]" />
-                  <div className="grid grid-cols-4 gap-8 w-full max-w-2xl px-8">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-full max-w-2xl px-4 md:px-8">
                     {shipments.slice(0, 4).map((shipment, i) => {
                       const TransportIcon = transportIcons[shipment.transportMode]
                       return (
@@ -371,8 +376,8 @@ export default function Dashboard() {
                       animate={{ opacity: 1, y: 0 }}
                       className="p-4 rounded-lg border hover:border-primary/50 transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 w-full md:w-auto">
                           <div className={cn(
                             "w-12 h-12 rounded-lg flex items-center justify-center",
                             shipment.riskLevel === 'critical' ? 'bg-red-500/20' :
@@ -399,8 +404,8 @@ export default function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
+                        <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto mt-2 md:mt-0">
+                          <div className="text-left md:text-right">
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-muted-foreground">Risk Score:</span>
                               <span className={cn(
@@ -459,8 +464,8 @@ export default function Dashboard() {
                       'border-l-amber-500 bg-amber-500/5'
                     )}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                      <div className="flex-1 w-full">
                         <div className="flex items-center gap-3">
                           <Shield className={cn(
                             "w-5 h-5",
@@ -495,7 +500,7 @@ export default function Dashboard() {
                           </ul>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" className="w-full md:w-auto">
                         View Details
                       </Button>
                     </div>
