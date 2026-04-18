@@ -26,7 +26,10 @@
     "react-simple-maps": "^3.0.0",
     "recharts": "^3.8.1",
     "@reduxjs/toolkit": "^2.11.2",
-    "framer-motion": "^11.15.0"
+    "framer-motion": "^11.15.0",
+    "react-router-dom": "^6.22.0",
+    "@tanstack/react-query": "^5.28.0",
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
