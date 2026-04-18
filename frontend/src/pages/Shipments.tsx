@@ -26,6 +26,18 @@ import AlertsPanel from '../components/AlertsPanel'
 import { alertsApi } from '../lib/api'
 import { cn, formatDate, formatDuration, getRiskColor, getRiskBgColor, getRiskBorderColor } from '../lib/utils'
 
+interface Alert {
+  id: string
+  shipment_id: string
+  alert_type: string
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  title: string
+  message: string
+  is_acknowledged: boolean
+  created_at: string
+  recommended_action?: string
+}
+
 const transportIcons = {
   sea: Ship,
   air: Plane,
@@ -49,14 +61,6 @@ export default function Shipments() {
   const [riskFilter, setRiskFilter] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [selectedTab, setSelectedTab] = useState<'all' | 'active' | 'at-risk'>('all')
-  interface Alert {
-    id: string
-    shipment_id: string
-    severity: string
-    message: string
-    createdAt: string
-  }
-
   const [shipmentAlerts, setShipmentAlerts] = useState<Alert[]>([])
 
   const { data, isLoading, refetch } = useQuery({

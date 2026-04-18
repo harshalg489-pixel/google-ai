@@ -15,6 +15,7 @@ import { alertsApi } from '../lib/api'
 
 interface Alert {
   id: string
+  shipment_id?: string
   alert_type: string
   severity: 'low' | 'medium' | 'high' | 'critical'
   title: string
