@@ -35,6 +35,7 @@ import { shipmentsApi, alertsApi, analyticsApi, predictionApi } from '@/lib/api'
 import { useShipmentStore, useAlertStore, useDashboardStore } from '@/lib/store'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { cn } from '@/lib/utils'
+import { LiveMap } from '@/components/LiveMap'
 
 const riskColors = {
   low: 'bg-emerald-500',
@@ -238,39 +239,8 @@ export default function Dashboard() {
                     ))}
                   </div>
                 </CardHeader>
-                <CardContent className="h-[400px] bg-muted/50 rounded-lg m-4 flex items-center justify-center relative overflow-hidden">
-                  {/* Simulated Map */}
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,_rgba(59,130,246,0.1),_transparent_50%),radial-gradient(circle_at_70%_60%,_rgba(34,197,94,0.1),_transparent_50%)]" />
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-full max-w-2xl px-4 md:px-8">
-                    {shipments.slice(0, 4).map((shipment, i) => {
-                      const TransportIcon = transportIcons[shipment.transportMode]
-                      return (
-                        <motion.div
-                          key={shipment.id}
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: i * 0.1 }}
-                          className="relative"
-                        >
-                          <div className={cn(
-                            "w-16 h-16 rounded-full flex items-center justify-center border-4 cursor-pointer hover:scale-110 transition-transform",
-                            shipment.riskLevel === 'critical' ? 'border-red-500 bg-red-500/20' :
-                            shipment.riskLevel === 'high' ? 'bg-orange-500/20 border-orange-500' :
-                            shipment.riskLevel === 'medium' ? 'bg-amber-500/20 border-amber-500' :
-                            'bg-emerald-500/20 border-emerald-500'
-                          )}>
-                            <TransportIcon className="w-6 h-6" />
-                            {shipment.riskLevel === 'critical' && (
-                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping" />
-                            )}
-                          </div>
-                          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap">
-                            {shipment.trackingNumber}
-                          </div>
-                        </motion.div>
-                      )
-                    })}
-                  </div>
+                <CardContent className="h-[400px] bg-muted/50 rounded-b-lg m-0 p-0 relative overflow-hidden">
+                  <LiveMap shipments={shipments} />
                 </CardContent>
               </Card>
             </motion.div>
