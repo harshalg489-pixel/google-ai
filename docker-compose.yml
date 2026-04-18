@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: supply_chain_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-supplychain}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-supplychain123}
+      POSTGRES_DB: ${DB_NAME:-supplychain_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-supplychain} -d ${DB_NAME:-supplychain_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: supply_chain_backend
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-supplychain}:${DB_PASSWORD:-supplychain123}@db:5432/${DB_NAME:-supplychain_db}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: supply_chain_frontend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    env_file:
+      - .env
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host
+
+  redis:
+    image: redis:7-alpine
+    container_name: supply_chain_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Simulation service for generating real-time data
+  simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: supply_chain_simulator
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-supplychain}:${DB_PASSWORD:-supplychain123}@db:5432/${DB_NAME:-supplychain_db}
+      - API_URL=http://backend:8000
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - backend
+      - db
+    volumes:
+      - ./backend:/app
+    command: python simulation/data_simulator.py
+    profiles:
+      - simulation
+
+volumes:
+  postgres_data:
+  redis_data:

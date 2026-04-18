@@ -1,15 +1,8 @@
 # dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
+node_modules/
+__pycache__/
+*.pyc
+.Python
 
 # next.js
 /.next/
@@ -17,6 +10,8 @@
 
 # production
 /build
+dist/
+*.egg-info/
 
 # misc
 .DS_Store
@@ -29,8 +24,32 @@ yarn-error.log*
 pnpm-debug.log*
 
 # env files
+.env
 .env*.local
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Database
+*.db
+*.sqlite
+
+# Docker volumes
+postgres_data/
+redis_data/
+
+# Testing
+coverage/
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+.cache/
+temp/
+tmp/
