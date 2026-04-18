@@ -53,9 +53,11 @@ export default function Dashboard() {
     refetchInterval: 30000,
   })
 
+  const ALERTS_LIMIT = 20;
+
   const { data: alertsResponse } = useQuery({
-    queryKey: ['alerts'],
-    queryFn: () => alertsApi.getAll({ limit: 20 }),
+    queryKey: ['alerts', ALERTS_LIMIT],
+    queryFn: () => alertsApi.getAll({ limit: ALERTS_LIMIT }),
     refetchInterval: 10000,
   })
 
