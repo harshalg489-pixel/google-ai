@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Loader2, Layers, ZoomIn, ZoomOut } from 'lucide-react'
 import { useShipmentStore } from '../store/shipmentStore'
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || ''
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
 
 interface ShipmentsMapProps {
   height?: string
