@@ -157,7 +157,7 @@ class Alert(Base):
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid4())
     )
-    shipment_id: Mapped[str] = mapped_column(String(36), ForeignKey("shipments.id"), nullable=False)
+    shipment_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("shipments.id"), nullable=True)
 
     alert_type: Mapped[str] = mapped_column(String(50), nullable=False)
     severity: Mapped[RiskLevel] = mapped_column(Enum(RiskLevel), nullable=False)

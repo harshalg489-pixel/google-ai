@@ -40,8 +40,8 @@ export interface PortCongestion {
 
 export interface Alert {
   id: string
-  shipment_id: string
-  alert_type: 'weather' | 'congestion' | 'delay' | 'risk' | 'reroute'
+  shipment_id?: string
+  alert_type: 'weather' | 'congestion' | 'delay' | 'risk' | 'reroute' | 'system_maintenance'
   severity: 'low' | 'medium' | 'high' | 'critical'
   title: string
   message: string

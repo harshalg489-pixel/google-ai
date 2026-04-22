@@ -118,7 +118,7 @@ class AlertResponse(AlertBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    shipment_id: str
+    shipment_id: Optional[str] = None
     is_acknowledged: bool = False
     acknowledged_by: Optional[str] = None
     acknowledged_at: Optional[datetime] = None
@@ -326,7 +326,7 @@ class PaginatedResponse(BaseModel):
     items: List[Any]
     total: int
     page: int
-    page_size: int
+    pageSize: int
     total_pages: int
 
 

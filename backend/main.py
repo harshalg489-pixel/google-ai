@@ -4,12 +4,16 @@ from contextlib import asynccontextmanager
 import os
 import random
 
-from fastapi import FastAPI, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 import asyncio
+import logging
 
-from database import get_db, init_db, engine
+from database import get_db, init_db, engine, SessionLocal, check_db_health
 from models import (
     Shipment, Route, RiskEvent, Alert, AnalyticsSnapshot,
     ShipmentStatus, RiskLevel, TransportMode, WeatherData
@@ -33,12 +37,39 @@ async def lifespan(app: FastAPI):
     yield
 
 
+logger = logging.getLogger("supplychain.api")
+logging.basicConfig(level=logging.INFO)
+
 app = FastAPI(
     title="Supply Chain Disruption Detection System",
     description="Real-time AI-powered supply chain monitoring and optimization",
     version="1.0.0",
     lifespan=lifespan
 )
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    logger.warning(f"Validation error: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"message": str(exc)},
+    )
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    logger.error(f"Database error: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "A database error occurred. Please try again later."},
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "An unexpected error occurred."},
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,7 +87,8 @@ async def broadcast_message(message: dict):
     for ws in connected_websockets:
         try:
             await ws.send_json(message)
-        except:
+        except Exception as e:
+            logger.warning(f"Failed to send to websocket: {e}")
             disconnected.append(ws)
 
     for ws in disconnected:
@@ -67,9 +99,8 @@ async def broadcast_message(message: dict):
 async def data_simulation_task():
     while True:
         await asyncio.sleep(10)
+        db = SessionLocal()
         try:
-            db = next(get_db())
-
             shipments = db.query(Shipment).filter(
                 Shipment.current_status.in_([ShipmentStatus.IN_TRANSIT, ShipmentStatus.AT_RISK])
             ).all()
@@ -100,7 +131,10 @@ async def data_simulation_task():
                 })
 
         except Exception as e:
-            print(f"Simulation error: {e}")
+            logger.error(f"Simulation error: {e}")
+            db.rollback()
+        finally:
+            db.close()
 
 
 @app.get("/")
@@ -110,10 +144,15 @@ async def root():
 
 @app.get("/api/v1/health")
 async def health_check():
+    db_healthy = check_db_health()
+    overall_status = "healthy" if db_healthy else "degraded"
     return {
-        "status": "healthy",
+        "status": overall_status,
         "timestamp": datetime.utcnow().isoformat(),
-        "services": {"database": "connected", "websocket": "active"}
+        "services": {
+            "database": "connected" if db_healthy else "disconnected",
+            "websocket": "active"
+        }
     }
 
 
@@ -199,6 +238,53 @@ async def create_shipment(shipment: ShipmentCreate, db: Session = Depends(get_db
     })
 
     return db_shipment
+
+
+@app.put("/api/v1/shipments/{shipment_id}")
+async def update_shipment(
+    shipment_id: str,
+    update: ShipmentUpdate,
+    db: Session = Depends(get_db)
+):
+    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+
+    if update.current_status is not None:
+        shipment.current_status = update.current_status
+    if update.current_location is not None:
+        shipment.current_location = update.current_location.model_dump()
+    if update.actual_eta is not None:
+        shipment.actual_eta = update.actual_eta
+    if update.risk_score is not None:
+        shipment.risk_score = update.risk_score
+        # Auto-update risk level based on score
+        if shipment.risk_score > 75:
+            shipment.risk_level = RiskLevel.CRITICAL
+        elif shipment.risk_score > 55:
+            shipment.risk_level = RiskLevel.HIGH
+        elif shipment.risk_score > 35:
+            shipment.risk_level = RiskLevel.MEDIUM
+        else:
+            shipment.risk_level = RiskLevel.LOW
+    if update.risk_level is not None:
+        shipment.risk_level = update.risk_level
+
+    shipment.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(shipment)
+
+    await broadcast_message({
+        "type": "shipment:update",
+        "payload": {
+            "shipment_id": shipment.id,
+            "current_status": shipment.current_status.value,
+            "risk_score": shipment.risk_score,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    })
+
+    return {"success": True, "shipment_id": shipment.id}
 
 
 @app.get("/api/v1/shipments/{shipment_id}/risk", response_model=RiskAssessment)
@@ -458,11 +544,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
     except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected normally.")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
         if websocket in connected_websockets:
             connected_websockets.remove(websocket)
 
-
-from sqlalchemy import func
 
 if __name__ == "__main__":
     import uvicorn

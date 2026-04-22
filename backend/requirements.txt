@@ -35,7 +35,6 @@ pytz==2023.3
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
-httpx==0.25.2
 
 # Security
 python-jose[cryptography]==3.3.0
