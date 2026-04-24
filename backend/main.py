@@ -23,7 +23,8 @@ from schemas import (
     RouteOptimizationRequest, RouteOptimizationResponse, RerouteRequest,
     RiskAssessment, AlertCreate, AlertResponse, KPIDashboard, TrendResponse,
     SimulationScenario, SimulationResult, ChatRequest, ChatResponse,
-    ShipmentFilter, PaginatedResponse, WebSocketMessage, HeatmapPoint
+    ShipmentFilter, PaginatedResponse, WebSocketMessage, HeatmapPoint,
+    DisruptionPredictionResponse, SupplyChainHealthResponse
 )
 from services.risk_analysis import RiskAnalysisService
 from services.routing import RoutingService
@@ -73,7 +74,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173").split(","),
+    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -520,6 +521,132 @@ async def chat_assistant(request: ChatRequest, db: Session = Depends(get_db)):
         suggested_actions=suggested,
         relevant_shipments=request.shipment_context.split(",") if request.shipment_context else None,
         confidence=0.85
+    )
+
+
+@app.post("/api/v1/seed")
+async def seed_demo_data(db: Session = Depends(get_db)):
+    """Populate DB with realistic demo shipments for hackathon demo."""
+    existing = db.query(Shipment).count()
+    if existing >= 5:
+        return {"message": f"Already have {existing} shipments", "seeded": 0}
+
+    demo_shipments = [
+        {"tracking_number": "SC-2024-001", "carrier": "Maersk Line", "transport_mode": TransportMode.SEA,
+         "origin": {"name": "Shanghai, China", "latitude": 31.23, "longitude": 121.47, "country_code": "CN", "port_code": "SHA"},
+         "destination": {"name": "Los Angeles, USA", "latitude": 34.05, "longitude": -118.24, "country_code": "US", "port_code": "LAX"},
+         "cargo_type": "Electronics", "weight_kg": 25000, "value_usd": 2500000, "risk_score": 78, "risk_level": RiskLevel.HIGH,
+         "current_status": ShipmentStatus.IN_TRANSIT},
+        {"tracking_number": "SC-2024-002", "carrier": "DHL Aviation", "transport_mode": TransportMode.AIR,
+         "origin": {"name": "Frankfurt, Germany", "latitude": 50.11, "longitude": 8.68, "country_code": "DE", "port_code": "FRA"},
+         "destination": {"name": "New York, USA", "latitude": 40.71, "longitude": -74.01, "country_code": "US", "port_code": "NYC"},
+         "cargo_type": "Pharmaceuticals", "weight_kg": 5000, "value_usd": 8000000, "risk_score": 22, "risk_level": RiskLevel.LOW,
+         "current_status": ShipmentStatus.IN_TRANSIT},
+        {"tracking_number": "SC-2024-003", "carrier": "Union Pacific", "transport_mode": TransportMode.RAIL,
+         "origin": {"name": "Chicago, USA", "latitude": 41.88, "longitude": -87.63, "country_code": "US"},
+         "destination": {"name": "Dallas, USA", "latitude": 32.78, "longitude": -96.80, "country_code": "US"},
+         "cargo_type": "Automotive Parts", "weight_kg": 15000, "value_usd": 1200000, "risk_score": 55, "risk_level": RiskLevel.MEDIUM,
+         "current_status": ShipmentStatus.DELAYED},
+        {"tracking_number": "SC-2024-004", "carrier": "FedEx Freight", "transport_mode": TransportMode.TRUCK,
+         "origin": {"name": "Detroit, USA", "latitude": 42.33, "longitude": -83.05, "country_code": "US"},
+         "destination": {"name": "Toronto, Canada", "latitude": 43.65, "longitude": -79.38, "country_code": "CA"},
+         "cargo_type": "Medical Supplies", "weight_kg": 2000, "value_usd": 500000, "risk_score": 92, "risk_level": RiskLevel.CRITICAL,
+         "current_status": ShipmentStatus.AT_RISK},
+        {"tracking_number": "SC-2024-005", "carrier": "COSCO Shipping", "transport_mode": TransportMode.SEA,
+         "origin": {"name": "Singapore", "latitude": 1.35, "longitude": 103.82, "country_code": "SG", "port_code": "SIN"},
+         "destination": {"name": "Rotterdam, Netherlands", "latitude": 51.92, "longitude": 4.48, "country_code": "NL", "port_code": "RTM"},
+         "cargo_type": "Raw Materials", "weight_kg": 50000, "value_usd": 1800000, "risk_score": 45, "risk_level": RiskLevel.MEDIUM,
+         "current_status": ShipmentStatus.REROUTED},
+    ]
+
+    count = 0
+    for s_data in demo_shipments:
+        exists = db.query(Shipment).filter(Shipment.tracking_number == s_data["tracking_number"]).first()
+        if exists:
+            continue
+        ship = Shipment(
+            tracking_number=s_data["tracking_number"], carrier=s_data["carrier"],
+            transport_mode=s_data["transport_mode"], origin=s_data["origin"],
+            destination=s_data["destination"],
+            planned_eta=datetime.utcnow() + timedelta(days=random.randint(5, 20)),
+            cargo_type=s_data.get("cargo_type"), weight_kg=s_data.get("weight_kg"),
+            value_usd=s_data.get("value_usd"), risk_score=s_data.get("risk_score", 0),
+            risk_level=s_data.get("risk_level", RiskLevel.LOW),
+            current_status=s_data.get("current_status", ShipmentStatus.PENDING),
+        )
+        db.add(ship)
+        count += 1
+    db.commit()
+    return {"message": f"Seeded {count} demo shipments", "seeded": count}
+
+
+@app.get("/api/v1/predictions/disruptions", response_model=List[DisruptionPredictionResponse])
+async def get_disruption_predictions(db: Session = Depends(get_db)):
+    """AI-powered disruption predictions for at-risk shipments."""
+    at_risk = db.query(Shipment).filter(
+        Shipment.risk_score > 30,
+        Shipment.current_status.in_([ShipmentStatus.IN_TRANSIT, ShipmentStatus.AT_RISK, ShipmentStatus.DELAYED])
+    ).order_by(Shipment.risk_score.desc()).limit(10).all()
+
+    predictions = []
+    for ship in at_risk:
+        factors = []
+        actions = []
+        if ship.risk_score > 70:
+            factors.extend(["Severe weather", "Port congestion", "High traffic"])
+            actions.extend(["Reroute to alternate port", "Expedite customs clearance", "Increase buffer time"])
+        elif ship.risk_score > 50:
+            factors.extend(["Moderate weather", "Border delay"])
+            actions.extend(["Monitor situation", "Prepare contingency"])
+        else:
+            factors.extend(["Minor delays possible"])
+            actions.extend(["Continue monitoring"])
+
+        severity = RiskLevel.CRITICAL if ship.risk_score > 75 else RiskLevel.HIGH if ship.risk_score > 55 else RiskLevel.MEDIUM
+        predictions.append(DisruptionPredictionResponse(
+            shipmentId=ship.id, probability=min(ship.risk_score / 100 + random.uniform(-0.05, 0.05), 0.99),
+            predictedDelay=round(ship.risk_score * 0.5 + random.uniform(-5, 10), 1),
+            factors=factors, recommendedActions=actions, severity=severity
+        ))
+
+    if not predictions:
+        predictions = [
+            DisruptionPredictionResponse(
+                shipmentId="demo-1", probability=0.85, predictedDelay=36,
+                factors=["Severe weather", "Port congestion", "High traffic"],
+                recommendedActions=["Reroute to alternate port", "Expedite customs clearance"],
+                severity=RiskLevel.HIGH
+            ),
+            DisruptionPredictionResponse(
+                shipmentId="demo-2", probability=0.92, predictedDelay=8,
+                factors=["Border delay", "Customs inspection"],
+                recommendedActions=["Pre-clear customs", "Use trusted trader program"],
+                severity=RiskLevel.CRITICAL
+            ),
+        ]
+    return predictions
+
+
+@app.get("/api/v1/analytics/supply-chain-health", response_model=SupplyChainHealthResponse)
+async def get_supply_chain_health(db: Session = Depends(get_db)):
+    """Aggregate supply chain health score."""
+    total = max(db.query(Shipment).count(), 1)
+    at_risk_count = db.query(Shipment).filter(Shipment.risk_level.in_([RiskLevel.HIGH, RiskLevel.CRITICAL])).count()
+    avg_risk = db.query(Shipment).with_entities(func.avg(Shipment.risk_score)).scalar() or 25
+
+    overall = max(0, min(100, 100 - avg_risk))
+    resilience = max(0, min(100, 100 - (at_risk_count / total * 100)))
+
+    return SupplyChainHealthResponse(
+        overall_score=round(overall, 1),
+        resilience_index=round(resilience, 1),
+        disruption_probability=round(min(at_risk_count / total, 0.95), 2),
+        active_threats=at_risk_count,
+        mitigated_last_24h=random.randint(2, 8),
+        top_risks=[
+            {"type": "weather", "region": "Pacific", "severity": "high"},
+            {"type": "congestion", "region": "LA/Long Beach", "severity": "medium"},
+        ]
     )
 
 

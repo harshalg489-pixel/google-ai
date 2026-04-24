@@ -339,3 +339,21 @@ class ShipmentFilter(BaseModel):
     date_to: Optional[datetime] = None
     min_risk_score: Optional[float] = None
     max_risk_score: Optional[float] = None
+
+
+class DisruptionPredictionResponse(BaseModel):
+    shipmentId: str
+    probability: float = Field(..., ge=0, le=1)
+    predictedDelay: float
+    factors: List[str]
+    recommendedActions: List[str]
+    severity: RiskLevel
+
+
+class SupplyChainHealthResponse(BaseModel):
+    overall_score: float = Field(..., ge=0, le=100)
+    resilience_index: float = Field(..., ge=0, le=100)
+    disruption_probability: float = Field(..., ge=0, le=1)
+    active_threats: int
+    mitigated_last_24h: int
+    top_risks: List[Dict[str, Any]]

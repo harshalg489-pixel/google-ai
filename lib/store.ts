@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { Shipment, KPIData, Alert } from '@/types'
+import type { SidebarSection } from '@/components/Sidebar'
 
 interface ShipmentState {
   shipments: Shipment[]
@@ -25,12 +25,16 @@ export const useShipmentStore = create<ShipmentState>()((set) => ({
 
 interface DashboardState {
   kpiData: KPIData | null
+  activeSection: SidebarSection
   setKPIData: (data: KPIData) => void
+  setActiveSection: (section: SidebarSection) => void
 }
 
 export const useDashboardStore = create<DashboardState>()((set) => ({
   kpiData: null,
+  activeSection: 'overview',
   setKPIData: (data) => set({ kpiData: data }),
+  setActiveSection: (section) => set({ activeSection: section }),
 }))
 
 interface AlertState {

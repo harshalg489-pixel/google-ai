@@ -6,14 +6,21 @@ import logging
 
 logger = logging.getLogger("supplychain.database")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://supplychain:supplychain123@localhost:5432/supplychain_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-if os.getenv("ENVIRONMENT") == "test":
-    engine = create_engine(
-        DATABASE_URL,
-        poolclass=NullPool,
-        echo=False
-    )
+# SQLite fallback for hackathon portability (no external DB needed)
+if not DATABASE_URL:
+    SQLITE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "supplychain.db")
+    DATABASE_URL = f"sqlite:///{SQLITE_PATH}"
+    logger.info(f"No DATABASE_URL set, using SQLite: {SQLITE_PATH}")
+
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+if os.getenv("ENVIRONMENT") == "test" or is_sqlite:
+    engine_kwargs = {"poolclass": NullPool, "echo": False}
+    if is_sqlite:
+        engine_kwargs["connect_args"] = {"check_same_thread": False}
+    engine = create_engine(DATABASE_URL, **engine_kwargs)
 else:
     engine = create_engine(
         DATABASE_URL,
